@@ -1,98 +1,135 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
-    <?php
-// 1. Se l'utente apre la pagina in GET (senza inviare il modulo), rimandalo al form
-if ($_SERVER["REQUEST_METHOD"] != "POST") {
-    header("Location: form.html");
-    exit;
-}
+<?php
+// Controlliamo se l'utente ha inviato il form tramite il metodo POST
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
-// 2. Prendo i dati inviati dal form
-$nome = trim($_POST['nome'] ?? '');
-$peso = $_POST['peso'] ?? '';
-$altezza = $_POST['altezza'] ?? '';
-$ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
-$data_ora = date("d/m/Y,H:i:s");
+    // 1. Data e ora dinamiche al momento dell'invio
+    $data_ora = date("d/m/Y,H:i:s");
+    
+    // Indirizzo IP del client
+    $ip = $_SERVER['REMOTE_ADDR'];
 
-// 3. Valido i singoli dati
-$log_nome = !empty($nome) ? htmlspecialchars($nome) : "NOT_VALID";
-$log_peso = (is_numeric($peso) && $peso > 0) ? $peso : "NOT_VALID";
-$log_altezza = (is_numeric($altezza) && $altezza > 0) ? $altezza : "NOT_VALID";
-
-$log_bmi = "NOT_VALID";
-$log_class = "NOT_VALID";
-
-// 4. Se peso e altezza sono validi, calcolo il BMI
-if ($log_peso != "NOT_VALID" && $log_altezza != "NOT_VALID") {
-    $altezza_m = $altezza / 100; // converto cm in metri
-    $bmi = $peso / ($altezza_m * $altezza_m);
-    $log_bmi = number_format($bmi, 2, '.', '');
-
-    // Decido la categoria
-    if ($bmi < 18.5) {
-        $fascia = "Sottopeso";
-        $classe_card = "sottopeso";
-    } elseif ($bmi <= 24.9) {
-        $fascia = "Normopeso";
-        $classe_card = "normopeso";
-    } elseif ($bmi <= 29.9) {
-        $fascia = "Sovrappeso";
-        $classe_card = "sovrappeso";
+    
+    if (isset($_POST['nome'])) {
+        $nome = trim($_POST['nome']);
     } else {
-        $fascia = "Obesita";
-        $classe_card = "obesita";
+        $nome = "";
     }
-    $log_class = $fascia;
-}
 
-// 5. Scrivo la riga nel file log.csv
-$riga_log = "$data_ora,$ip,$log_nome,$log_altezza,$log_peso,$log_bmi,$log_class\n";
-file_put_contents('log.csv', $riga_log, FILE_APPEND);
+    if (isset($_POST['peso'])) {
+        $peso = $_POST['peso'];
+    } else {
+        $peso = "";
+    }
 
-// Se i dati inseriti non erano validi, torna al form
-if ($log_bmi == "NOT_VALID" || $log_nome == "NOT_VALID") {
-    header("Location: form.html");
-    exit;
+    if (isset($_POST['altezza'])) {
+        $altezza = $_POST['altezza'];
+    } else {
+        $altezza = "";
+    }
+
+    // 3. Validazione del NOME
+    if ($nome != "") {
+        $log_nome = $nome;
+    } else {
+        $log_nome = "NOT_VALID";
+    }
+
+    // 4. Validazione del PESO
+    if (is_numeric($peso) && $peso > 0) {
+        $log_peso = $peso;
+    } else {
+        $log_peso = "NOT_VALID";
+    }
+
+    // 5. Validazione dell'ALTEZZA
+    if (is_numeric($altezza) && $altezza > 0) {
+        $log_altezza = $altezza;
+    } else {
+        $log_altezza = "NOT_VALID";
+    }
+
+    // 6. Calcolo del BMI solo se peso e altezza sono corretti
+    if ($log_peso != "NOT_VALID" && $log_altezza != "NOT_VALID") {
+        
+        $altezza_m = $altezza / 100; // Converte i centimetri in metri
+        $bmi = $peso / ($altezza_m * $altezza_m); // Formula BMI
+        $log_bmi = number_format($bmi, 2); // Arrotonda a 2 cifre decimali
+
+        // Scelta della categoria e della classe di colore
+        if ($bmi < 18.5) {
+            $log_class = "Sottopeso";
+            $classe_css = "sottopeso";
+        } elseif ($bmi <= 24.9) {
+            $log_class = "Normopeso";
+            $classe_css = "normopeso";
+        } elseif ($bmi <= 29.9) {
+            $log_class = "Sovrappeso";
+            $classe_css = "sovrappeso";
+        } else {
+            $log_class = "Obesità";
+            $classe_css = "obesita";
+        }
+
+    } else {
+        // Se c'è un errore nei dati
+        $log_bmi = "NOT_VALID";
+        $log_class = "NOT_VALID";
+    }
+
+    // 7. Scrittura della riga nel file log.csv
+    $riga = "$data_ora,$ip,$log_nome,$log_altezza,$log_peso,$log_bmi,$log_class\n";
+    file_put_contents("log.csv", $riga, FILE_APPEND);
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Il tuo BMI</title>
+    <title>Calcolo BMI</title>
     <style>
-        body { font-family: sans-serif; background: #F1F3F5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .container { text-align: center; width: 300px; }
-        .card { border: 3px solid; padding: 20px; border-radius: 10px; background: white; }
-        .sottopeso { background: #E3EEF9; border-color: #2F6FB3; color: #2F6FB3; }
-        .normopeso { background: #E3F4E6; border-color: #256D34; color: #256D34; }
-        .sovrappeso { background: #FCEBD7; border-color: #9A4F06; color: #9A4F06; }
-        .obesita { background: #FBE2E2; border-color: #B32D2D; color: #B32D2D; }
-        a { display: inline-block; margin-top: 15px; color: #333; }
+        body { font-family: sans-serif; background: #f4f4f4; text-align: center; padding: 20px; }
+        .box { background: white; max-width: 300px; margin: 0 auto; padding: 20px; border-radius: 8px; }
+        input { width: 100%; padding: 8px; margin: 5px 0; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background: #28a745; color: white; border: none; margin-top: 10px; }
+        
+        /* Stili della scheda risultato */
+        .card { padding: 15px; margin-bottom: 15px; border-radius: 5px; border: 2px solid; }
+        .sottopeso { background: #e3eef9; border-color: #2f6fb3; color: #2f6fb3; }
+        .normopeso { background: #e3f4e6; border-color: #256d34; color: #256d34; }
+        .sovrappeso { background: #fcebd7; border-color: #9a4f06; color: #9a4f06; }
+        .obesita { background: #fbe2e2; border-color: #b32d2d; color: #b32d2d; }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <h1>Il tuo BMI</h1>
+    <div class="box">
+        <h1>Calcolatore BMI</h1>
 
-        <div class="card <?php echo $classe_card; ?>">
-            <h2><?php echo $log_nome; ?></h2>
-            <p>Peso: <?php echo $log_peso; ?> kg | Altezza: <?php echo $log_altezza; ?> cm</p>
-            <h1 style="font-size: 40px;"><?php echo $log_bmi; ?></h1>
-            <h3><?php echo strtoupper($log_class); ?></h3>
-        </div>
+        <!-- Mostra il risultato solo se il calcolo è andato a buon fine -->
+        <?php if (isset($log_bmi) && $log_bmi != "NOT_VALID"): ?>
+            <div class="card <?php echo $classe_css; ?>">
+                <h2><?php echo $log_nome; ?></h2>
+                <p>Peso: <?php echo $log_peso; ?> kg | Altezza: <?php echo $log_altezza; ?> cm</p>
+                <h1><?php echo $log_bmi; ?></h1>
+                <h3><?php echo strtoupper($log_class); ?></h3>
+            </div>
+        <?php endif; ?>
 
-        <a href="form.html">Calcola di nuovo</a>
+        <!-- Form HTML -->
+        <form method="POST" action="index.php">
+            <label>Nome:</label>
+            <input type="text" name="nome" required>
+
+            <label>Peso (kg):</label>
+            <input type="number" step="0.1" name="peso" required>
+
+            <label>Altezza (cm):</label>
+            <input type="number" name="altezza" required>
+
+            <button type="submit">Calcola</button>
+        </form>
     </div>
 
-</body>
-</html>
 </body>
 </html>
